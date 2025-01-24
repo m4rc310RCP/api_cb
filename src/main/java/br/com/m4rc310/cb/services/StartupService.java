@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,13 +21,30 @@ import io.leangen.graphql.annotations.GraphQLContext;
 import io.leangen.graphql.annotations.GraphQLMutation;
 import io.leangen.graphql.annotations.GraphQLQuery;
 import io.leangen.graphql.spqr.spring.annotations.GraphQLApi;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @GraphQLApi
 public class StartupService extends MService {
 
 	@Value("${IS_DEV:false}")
 	private boolean isDev;
+	
+	@PostConstruct
+	void init() {
+		Date now = new Date();
+		
+		List<ProductPrice> pps = productPriceRepository.findAllByDateInitLessThanEqualAndDateEndGreaterThanEqual(now, now);
+		pps.forEach(pp->{
+			
+			taskScheduler.schedule(()->{
+				log.info("SCHEDULER");
+			}, pp.getDateEnd());
+		});
+	}
+	
 
 	@GraphQLQuery(name = QUERY$test_api, description = DESC$query_test_api)
 	public String testAPI() {
@@ -144,6 +162,8 @@ public class StartupService extends MService {
 		pp.setId(new ProductPriceFK());
 		pp.getId().setProduct(product);
 		pp.getId().setSequence(sequence);
+		
+		
 
 		return productPriceRepository.save(pp);
 	}
